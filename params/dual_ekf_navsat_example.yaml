@@ -14,8 +14,8 @@ ekf_se_odom:
   base_link_frame: base_link
   world_frame: odom
 
-  odom0: /kiwibot/odometry
-  odom0_config: [true, true, true,  #Set or not set: IMNPORTANT!!!
+  odom0: kiwibot/odometry
+  odom0_config: [true, true, true,
                  false, false, true,
                  true,  true,  true,
                  false, false, false,
@@ -25,7 +25,7 @@ ekf_se_odom:
   odom0_differential: false
   odom0_relative: false
 
-  imu0: /kiwibot/sensors/imu/data_ekf
+  imu0: kiwibot/sensors/imu/data_ekf
   imu0_config: [false, false, false,
                 true,  true,  true,
                 false, false, false,
@@ -85,8 +85,8 @@ ekf_se_map:
   base_link_frame: base_link
   world_frame: map
 
-odom0: /kiwibot/odometry
-  odom0_config: [true, true, true,  #Set or not set: IMNPORTANT!!!
+  odom0: kiwibot/odometry
+  odom0_config: [true, true, true,
                  false, false, true,
                  true,  true,  true,
                  false, false, false,
@@ -107,7 +107,7 @@ odom0: /kiwibot/odometry
   odom1_differential: false
   odom1_relative: false
 
-  imu0: /kiwibot/sensors/imu/data_ekf
+  imu0: kiwibot/sensors/imu/data_ekf
   imu0_config: [false, false, false,
                 true,  true,  true,
                 false, false, false,
