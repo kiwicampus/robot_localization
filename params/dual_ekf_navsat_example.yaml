@@ -16,7 +16,7 @@ ekf_se_odom:
 
   odom0: kiwibot/odometry
   odom0_config: [true, true, true,
-                 false, false, true,
+                 false, false, false,
                  true,  true,  true,
                  false, false, false,
                  false, false, false]
@@ -36,6 +36,18 @@ ekf_se_odom:
   imu0_relative: false
   imu0_queue_size: 10
   imu0_remove_gravitational_acceleration: false
+
+  imu1: kiwibot/sensors/imu/data
+  imu1_config: [false, false, false,
+                false,  false,  true,
+                false, false, false,
+                false,  false,  false,
+                false,  false,  false]
+  imu1_nodelay: false
+  imu1_differential: true
+  imu1_relative: false
+  imu1_queue_size: 10
+  imu1_remove_gravitational_acceleration: false
 
   use_control: false
 
@@ -86,8 +98,8 @@ ekf_se_map:
   world_frame: map
 
   odom0: kiwibot/odometry
-  odom0_config: [true, true, true,
-                 false, false, true,
+  odom0_config: [false, false, false,
+                 false, false, false,
                  true,  true,  true,
                  false, false, false,
                  false, false, false]
@@ -118,6 +130,18 @@ ekf_se_map:
   imu0_relative: false
   imu0_queue_size: 10
   imu0_remove_gravitational_acceleration: false
+
+  imu1: kiwibot/sensors/imu/data
+  imu1_config: [false, false, false,
+                false,  false,  true,
+                false, false, false,
+                false,  false,  false,
+                false,  false,  false]
+  imu1_nodelay: false
+  imu1_differential: true
+  imu1_relative: false
+  imu1_queue_size: 10
+  imu1_remove_gravitational_acceleration: false
 
   use_control: false
 
@@ -163,4 +187,3 @@ navsat_transform:
   publish_filtered_gps: true
   use_odometry_yaw: false
   wait_for_datum: false
-
