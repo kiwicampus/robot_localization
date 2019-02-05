@@ -25,11 +25,11 @@ ekf_se_odom:
   odom0_differential: false
   odom0_relative: false
 
-  imu0: kiwibot/sensors/imu/data_ekf
+  imu0: kiwibot/sensors/imu/data
   imu0_config: [false, false, false,
                 true,  true,  true,
                 false, false, false,
-                true,  true,  true,
+                false,  false,  false,
                 true,  true,  true]
   imu0_nodelay: false
   imu0_differential: false
@@ -37,17 +37,7 @@ ekf_se_odom:
   imu0_queue_size: 50
   imu0_remove_gravitational_acceleration: false
 
-  imu1: kiwibot/sensors/imu/data
-  imu1_config: [false, false, false,
-                false,  false,  true,
-                false, false, false,
-                false,  false,  false,
-                false,  false,  false]
-  imu1_nodelay: true
-  imu1_differential: false
-  imu1_relative: false
-  imu1_queue_size: 50
-  imu1_remove_gravitational_acceleration: false
+
 
   use_control: false
 
