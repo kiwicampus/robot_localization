@@ -98,12 +98,12 @@ ekf_se_map:
   world_frame: map
 
   odom0: kiwibot/odometry
-  odom0_config: [false, false, false,
+  odom0_config: [false, false, true,
                  false, false, false,
                  true,  true,  true,
                  false, false, false,
                  false, false, false]
-  odom0_queue_size: 10
+  odom0_queue_size: 50
   odom0_nodelay: true
   odom0_differential: false
   odom0_relative: false
@@ -128,7 +128,7 @@ ekf_se_map:
   imu0_nodelay: false
   imu0_differential: false
   imu0_relative: false
-  imu0_queue_size: 10
+  imu0_queue_size: 50
   imu0_remove_gravitational_acceleration: false
 
   imu1: kiwibot/sensors/imu/data
@@ -138,9 +138,9 @@ ekf_se_map:
                 false,  false,  false,
                 false,  false,  false]
   imu1_nodelay: true
-  imu1_differential: true
+  imu1_differential: false
   imu1_relative: false
-  imu1_queue_size: 10
+  imu1_queue_size: 50
   imu1_remove_gravitational_acceleration: false
 
   use_control: false
@@ -179,11 +179,11 @@ ekf_se_map:
 
 navsat_transform:
   frequency: 50
-  delay: 3.0
+  delay: 2.0
   magnetic_declination_radians: 0.0  # For lat/long 55.944831, -3.186998
   yaw_offset: 0.0  # IMU reads 0 facing magnetic north, not east
   zero_altitude: false
   broadcast_utm_transform: true
   publish_filtered_gps: true
-  use_odometry_yaw: false
+  use_odometry_yaw: true
   wait_for_datum: false
