@@ -174,11 +174,11 @@ NavSatTransform::NavSatTransform(const rclcpp::NodeOptions & options)
     "odometry/filtered", custom_qos, std::bind(&NavSatTransform::odomCallback, this, _1));
 
   gps_sub_ = this->create_subscription<sensor_msgs::msg::NavSatFix>(
-    "gps/fix", custom_qos, std::bind(&NavSatTransform::gpsFixCallback, this, _1));
+    "/fix", custom_qos, std::bind(&NavSatTransform::gpsFixCallback, this, _1));
 
   if (!use_odometry_yaw_ && !use_manual_datum_) {
     imu_sub_ = this->create_subscription<sensor_msgs::msg::Imu>(
-      "imu", custom_qos, std::bind(&NavSatTransform::imuCallback, this, _1));
+      "/imu/data", custom_qos, std::bind(&NavSatTransform::imuCallback, this, _1));
   }
 
   gps_odom_pub_ =

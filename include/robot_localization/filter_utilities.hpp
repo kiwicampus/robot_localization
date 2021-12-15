@@ -44,7 +44,7 @@
 #include <vector>
 
 #define FB_DEBUG(msg) \
-  if (getDebug()) { \
+  if (getDebug() && debug_stream_!=nullptr) { \
     *debug_stream_ << msg; \
   }
 
