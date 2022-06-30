@@ -34,6 +34,9 @@
 #define ROBOT_LOCALIZATION_NAVSAT_TRANSFORM_H
 
 #include <robot_localization/SetDatum.h>
+#include <robot_localization/ToLL.h>
+#include <robot_localization/FromLL.h>
+#include <robot_localization/SetUTMZone.h>
 
 #include <ros/ros.h>
 
@@ -47,6 +50,11 @@
 #include <tf2_ros/transform_listener.h>
 
 #include <Eigen/Dense>
+
+#include <GeographicLib/Geocentric.hpp>
+#include <GeographicLib/LocalCartesian.hpp>
+#include <GeographicLib/MGRS.hpp>
+#include <GeographicLib/UTMUPS.hpp>
 
 #include <string>
 
@@ -77,12 +85,25 @@ class NavSatTransform
     //!
     bool datumCallback(robot_localization::SetDatum::Request& request, robot_localization::SetDatum::Response&);
 
-    //! @brief Given the pose of the navsat sensor in the UTM frame, removes the offset from the vehicle's centroid
-    //! and returns the UTM-frame pose of said centroid.
+    //! @brief Callback for the to Lat Long service
     //!
-    void getRobotOriginUtmPose(const tf2::Transform &gps_utm_pose,
-                               tf2::Transform &robot_utm_pose,
-                               const ros::Time &transform_time);
+    bool toLLCallback(robot_localization::ToLL::Request& request, robot_localization::ToLL::Response& response);
+
+    //! @brief Callback for the from Lat Long service
+    //!
+    bool fromLLCallback(robot_localization::FromLL::Request& request, robot_localization::FromLL::Response& response);
+
+    //! @brief Callback for the UTM zone service
+    //!
+    bool setUTMZoneCallback(robot_localization::SetUTMZone::Request& request,
+                            robot_localization::SetUTMZone::Response& response);
+
+    //! @brief Given the pose of the navsat sensor in the cartesian frame, removes the offset from the vehicle's
+    //! centroid and returns the cartesian-frame pose of said centroid.
+    //!
+    void getRobotOriginCartesianPose(const tf2::Transform &gps_cartesian_pose,
+                                     tf2::Transform &robot_cartesian_pose,
+                                     const ros::Time &transform_time);
 
     //! @brief Given the pose of the navsat sensor in the world frame, removes the offset from the vehicle's centroid
     //! and returns the world-frame pose of said centroid.
@@ -126,13 +147,23 @@ class NavSatTransform
     //!
     void setTransformOdometry(const nav_msgs::OdometryConstPtr& msg);
 
-    //! @brief Whether or not we broadcast the UTM transform
+    //! @brief Transforms the passed in pose from utm to map frame
+    //! @param[in] cartesian_pose the pose in cartesian frame to use to transform
     //!
-    bool broadcast_utm_transform_;
+    nav_msgs::Odometry cartesianToMap(const tf2::Transform& cartesian_pose) const;
 
-    //! @brief Whether to broadcast the UTM transform as parent frame, default as child
+    //! @brief Transforms the passed in point from map frame to lat/long
+    //! @param[in] point the point in map frame to use to transform
     //!
-    bool broadcast_utm_transform_as_parent_frame_;
+    void mapToLL(const tf2::Vector3& point, double& latitude, double& longitude, double& altitude) const;
+
+    //! @brief Whether or not we broadcast the cartesian transform
+    //!
+    bool broadcast_cartesian_transform_;
+
+    //! @brief Whether to broadcast the cartesian transform as parent frame, default as child
+    //!
+    bool broadcast_cartesian_transform_as_parent_frame_;
 
     //! @brief Whether or not we have new GPS data
     //!
@@ -175,6 +206,14 @@ class NavSatTransform
     //!
     bool use_odometry_yaw_;
 
+    //! @brief Whether we use a Local Cartesian (tangent plane ENU) or the UTM coordinates as our cartesian
+    //!
+    bool use_local_cartesian_;
+
+    //! @brief Local Cartesian projection around gps origin
+    //!
+    GeographicLib::LocalCartesian gps_local_cartesian_;
+
     //! @brief Whether or not to report 0 altitude
     //!
     //! If this parameter is true, we always report 0 for the altitude of the converted GPS odometry message.
@@ -185,9 +224,13 @@ class NavSatTransform
     //!
     double magnetic_declination_;
 
-    //! @brief Stores the yaw we need to compute the transform
+    //! @brief UTM's meridian convergence
     //!
-    double utm_odom_tf_yaw_;
+    //! Angle between projected meridian (True North) and UTM's grid Y-axis.
+    //! For UTM projection (Ellipsoidal Transverse Mercator) it is zero on the equator and non-zero everywhere else.
+    //! It increases as the poles are approached or as we're getting farther from central meridian.
+    //!
+    double utm_meridian_convergence_;
 
     //! @brief IMU's yaw offset
     //!
@@ -206,9 +249,13 @@ class NavSatTransform
     //!
     std::string gps_frame_id_;
 
-    //! @brief UTM zone as determined after transforming GPS message
+    //! @brief the UTM zone (zero means UPS)
     //!
-    std::string utm_zone_;
+    int utm_zone_;
+
+    //! @brief hemisphere (true means north, false means south)
+    //!
+    bool northp_;
 
     //! @brief Frame ID of the GPS odometry output
     //!
@@ -220,9 +267,9 @@ class NavSatTransform
     //!
     Eigen::MatrixXd latest_odom_covariance_;
 
-    //! @brief Covariance for most recent GPS/UTM data
+    //! @brief Covariance for most recent GPS/UTM/LocalCartesian data
     //!
-    Eigen::MatrixXd latest_utm_covariance_;
+    Eigen::MatrixXd latest_cartesian_covariance_;
 
     //! @brief Timestamp of the latest good GPS message
     //!
@@ -248,29 +295,29 @@ class NavSatTransform
     //!
     tf2::Quaternion transform_orientation_;
 
-    //! @brief Latest GPS data, stored as UTM coords
+    //! @brief Latest GPS data, stored as Cartesian coords
     //!
-    tf2::Transform latest_utm_pose_;
+    tf2::Transform latest_cartesian_pose_;
 
     //! @brief Latest odometry pose data
     //!
     tf2::Transform latest_world_pose_;
 
-    //! @brief Holds the UTM pose that is used to compute the transform
+    //! @brief Holds the cartesian (UTM or local ENU) pose that is used to compute the transform
     //!
-    tf2::Transform transform_utm_pose_;
+    tf2::Transform transform_cartesian_pose_;
 
     //! @brief Latest IMU orientation
     //!
     tf2::Transform transform_world_pose_;
 
-    //! @brief Holds the UTM->odom transform
+    //! @brief Holds the Cartesian->odom transform
     //!
-    tf2::Transform utm_world_transform_;
+    tf2::Transform cartesian_world_transform_;
 
     //! @brief Holds the odom->UTM transform for filtered GPS broadcast
     //!
-    tf2::Transform utm_world_trans_inverse_;
+    tf2::Transform cartesian_world_trans_inverse_;
 
     //! @brief Publiser for filtered gps data
     //!
@@ -296,6 +343,18 @@ class NavSatTransform
     //!
     ros::ServiceServer datum_srv_;
 
+    //! @brief Service for to Lat Long
+    //!
+    ros::ServiceServer to_ll_srv_;
+
+    //! @brief Service for from Lat Long
+    //!
+    ros::ServiceServer from_ll_srv_;
+
+    //! @brief Service for set UTM zone
+    //!
+    ros::ServiceServer set_utm_zone_srv_;
+
     //! @brief Transform buffer for managing coordinate transforms
     //!
     tf2_ros::Buffer tf_buffer_;
@@ -304,9 +363,9 @@ class NavSatTransform
     //!
     tf2_ros::TransformListener tf_listener_;
 
-    //! @brief Used for publishing the static world_frame->utm transform
+    //! @brief Used for publishing the static world_frame->cartesian transform
     //!
-    tf2_ros::StaticTransformBroadcaster utm_broadcaster_;
+    tf2_ros::StaticTransformBroadcaster cartesian_broadcaster_;
 };
 
 }  // namespace RobotLocalization

@@ -39,14 +39,23 @@
 
 #include <algorithm>
 #include <map>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 #include <limits>
+
+#if defined(_WIN32) && defined(ERROR)
+  #undef ERROR
+#endif
+
 namespace RobotLocalization
 {
   template<typename T>
-  RosFilter<T>::RosFilter(ros::NodeHandle nh, ros::NodeHandle nh_priv, std::vector<double> args) :
+  RosFilter<T>::RosFilter(ros::NodeHandle nh,
+                          ros::NodeHandle nh_priv,
+                          std::string node_name,
+                          std::vector<double> args) :
       disabledAtStartup_(false),
       enabled_(false),
       predictToCurrentTime_(false),
@@ -58,6 +67,7 @@ namespace RobotLocalization
       toggledOn_(true),
       twoDMode_(false),
       useControl_(false),
+      silentTfFailure_(false),
       dynamicDiagErrorLevel_(diagnostic_msgs::DiagnosticStatus::OK),
       staticDiagErrorLevel_(diagnostic_msgs::DiagnosticStatus::OK),
       frequency_(30.0),
@@ -77,6 +87,7 @@ namespace RobotLocalization
       filter_(args),
       nh_(nh),
       nhLocal_(nh_priv),
+      diagnosticUpdater_(nh, nh_priv, node_name),
       tfListener_(tfBuffer_)
   {
     stateVariableNames_.push_back("X");
@@ -99,6 +110,11 @@ namespace RobotLocalization
   }
 
   template<typename T>
+  RosFilter<T>::RosFilter(ros::NodeHandle nh, ros::NodeHandle nh_priv, std::vector<double> args) :
+      RosFilter<T>::RosFilter(nh, nh_priv, ros::this_node::getName(), args)
+  {}
+
+  template<typename T>
   RosFilter<T>::~RosFilter()
   {
     topicSubs_.clear();
@@ -107,8 +123,6 @@ namespace RobotLocalization
   template<typename T>
   void RosFilter<T>::initialize()
   {
-    ros::Time::init();
-
     loadParams();
 
     if (printDiagnostics_)
@@ -801,6 +815,7 @@ namespace RobotLocalization
     FilterUtilities::appendPrefix(tfPrefix, mapFrameId_);
     FilterUtilities::appendPrefix(tfPrefix, odomFrameId_);
     FilterUtilities::appendPrefix(tfPrefix, baseLinkFrameId_);
+    FilterUtilities::appendPrefix(tfPrefix, baseLinkOutputFrameId_);
     FilterUtilities::appendPrefix(tfPrefix, worldFrameId_);
 
     // Whether we're publshing the world_frame->base_link_frame transform
@@ -827,6 +842,10 @@ namespace RobotLocalization
 
     // Determine if we're in 2D mode
     nhLocal_.param("two_d_mode", twoDMode_, false);
+
+    // Whether or not to print warning for tf lookup failure
+    // Note: accesses the root of the parameter tree, not the local parameters
+    nh_.param("/silent_tf_failure", silentTfFailure_, false);
 
     // Smoothing window size
     nhLocal_.param("smooth_lagged_data", smoothLaggedData_, false);
@@ -978,6 +997,7 @@ namespace RobotLocalization
              "\nfrequency is " << frequency_ <<
              "\nsensor_timeout is " << filter_.getSensorTimeout() <<
              "\ntwo_d_mode is " << (twoDMode_ ? "true" : "false") <<
+             "\nsilent_tf_failure is " << (silentTfFailure_ ? "true" : "false") <<
              "\nsmooth_lagged_data is " << (smoothLaggedData_ ? "true" : "false") <<
              "\nhistory_length is " << historyLength_ <<
              "\nuse_control is " << (useControl_ ? "true" : "false") <<
@@ -1359,7 +1379,31 @@ namespace RobotLocalization
         // update configuration (as this contains pose information)
         std::vector<int> updateVec = loadUpdateConfig(imuTopicName);
 
+        // sanity checks for update config settings
+        std::vector<int> positionUpdateVec(updateVec.begin() + POSITION_OFFSET,
+                                           updateVec.begin() + POSITION_OFFSET + POSITION_SIZE);
+        int positionUpdateSum = std::accumulate(positionUpdateVec.begin(), positionUpdateVec.end(), 0);
+        if (positionUpdateSum > 0)
+        {
+          ROS_WARN_STREAM("Warning: Some position entries in parameter " << imuTopicName << "_config are listed true, "
+                          "but sensor_msgs/Imu contains no information about position");
+        }
+        std::vector<int> linearVelocityUpdateVec(updateVec.begin() + POSITION_V_OFFSET,
+                                                 updateVec.begin() + POSITION_V_OFFSET + LINEAR_VELOCITY_SIZE);
+        int linearVelocityUpdateSum = std::accumulate(linearVelocityUpdateVec.begin(),
+                                                      linearVelocityUpdateVec.end(),
+                                                      0);
+        if (linearVelocityUpdateSum > 0)
+        {
+          ROS_WARN_STREAM("Warning: Some linear velocity entries in parameter " << imuTopicName << "_config are listed "
+                          "true, but an sensor_msgs/Imu contains no information about linear velocities");
+        }
+
         std::vector<int> poseUpdateVec = updateVec;
+        // IMU message contains no information about position, filter everything except orientation
+        std::fill(poseUpdateVec.begin() + POSITION_OFFSET,
+                  poseUpdateVec.begin() + POSITION_OFFSET + POSITION_SIZE,
+                  0);
         std::fill(poseUpdateVec.begin() + POSITION_V_OFFSET,
                   poseUpdateVec.begin() + POSITION_V_OFFSET + TWIST_SIZE,
                   0);
@@ -1368,8 +1412,12 @@ namespace RobotLocalization
                   0);
 
         std::vector<int> twistUpdateVec = updateVec;
+        // IMU message contains no information about linear speeds, filter everything except angular velocity
         std::fill(twistUpdateVec.begin() + POSITION_OFFSET,
                   twistUpdateVec.begin() + POSITION_OFFSET + POSE_SIZE,
+                  0);
+        std::fill(twistUpdateVec.begin() + POSITION_V_OFFSET,
+                  twistUpdateVec.begin() + POSITION_V_OFFSET + LINEAR_VELOCITY_SIZE,
                   0);
         std::fill(twistUpdateVec.begin() + POSITION_A_OFFSET,
                   twistUpdateVec.begin() + POSITION_A_OFFSET + ACCELERATION_SIZE,
@@ -1867,7 +1915,7 @@ namespace RobotLocalization
       if (!validateFilterOutput(filteredPosition))
       {
         ROS_ERROR_STREAM("Critical Error, NaNs were detected in the output state of the filter." <<
-              " This was likely due to poorly coniditioned process, noise, or sensor covariances.");
+              " This was likely due to poorly conditioned process, noise, or sensor covariances.");
       }
 
       // If the worldFrameId_ is the odomFrameId_ frame, then we can just send the transform. If the
@@ -2370,7 +2418,8 @@ namespace RobotLocalization
                                                                 msgFrame,
                                                                 msg->header.stamp,
                                                                 tfTimeout_,
-                                                                targetFrameTrans);
+                                                                targetFrameTrans,
+                                                                silentTfFailure_);
 
     if (canTransform)
     {
@@ -2379,7 +2428,6 @@ namespace RobotLocalization
       if (removeGravitationalAcc_[topicName])
       {
         tf2::Vector3 normAcc(0, 0, gravitationalAcc_);
-        tf2::Quaternion curAttitude;
         tf2::Transform trans;
 
         if (::fabs(msg->orientation_covariance[0] + 1) < 1e-9)
@@ -2387,36 +2435,38 @@ namespace RobotLocalization
           // Imu message contains no orientation, so we should use orientation
           // from filter state to transform and remove acceleration
           const Eigen::VectorXd &state = filter_.getState();
-          tf2::Vector3 stateTmp(state(StateMemberRoll),
-                                state(StateMemberPitch),
-                                state(StateMemberYaw));
+          tf2::Matrix3x3 stateTmp;
+          stateTmp.setRPY(state(StateMemberRoll),
+                          state(StateMemberPitch),
+                          state(StateMemberYaw));
+
           // transform state orientation to IMU frame
           tf2::Transform imuFrameTrans;
           RosFilterUtilities::lookupTransformSafe(tfBuffer_,
-                                                  msgFrame,
                                                   targetFrame,
+                                                  msgFrame,
                                                   msg->header.stamp,
                                                   tfTimeout_,
                                                   imuFrameTrans);
-          stateTmp = imuFrameTrans.getBasis() * stateTmp;
-          curAttitude.setRPY(stateTmp.getX(), stateTmp.getY(), stateTmp.getZ());
+          trans.setBasis(stateTmp * imuFrameTrans.getBasis());
         }
         else
         {
+          tf2::Quaternion curAttitude;
           tf2::fromMsg(msg->orientation, curAttitude);
           if (fabs(curAttitude.length() - 1.0) > 0.01)
           {
             ROS_WARN_ONCE("An input was not normalized, this should NOT happen, but will normalize.");
             curAttitude.normalize();
           }
+          trans.setRotation(curAttitude);
         }
-        trans.setRotation(curAttitude);
         tf2::Vector3 rotNorm = trans.getBasis().inverse() * normAcc;
         accTmp.setX(accTmp.getX() - rotNorm.getX());
         accTmp.setY(accTmp.getY() - rotNorm.getY());
         accTmp.setZ(accTmp.getZ() - rotNorm.getZ());
 
-        RF_DEBUG("Orientation is " << curAttitude <<
+        RF_DEBUG("Orientation is " << trans.getRotation() <<
                  "Acceleration due to gravity is " << rotNorm <<
                  "After removing acceleration due to gravity, acceleration is " << accTmp << "\n");
       }
@@ -2532,7 +2582,7 @@ namespace RobotLocalization
     {
       // Otherwise, we should use our target frame
       finalTargetFrame = targetFrame;
-      poseTmp.frame_id_ = (differential ? finalTargetFrame : msg->header.frame_id);
+      poseTmp.frame_id_ = (differential && !imuData ? finalTargetFrame : msg->header.frame_id);
     }
 
     RF_DEBUG("Final target frame for " << topicName << " is " << finalTargetFrame << "\n");

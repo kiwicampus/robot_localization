@@ -2,6 +2,77 @@
 Changelog for package robot_localization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+2.6.11 (2021-07-23)
+-------------------
+* Prevent node from crashing on invalid UTM zone, but throw ROS_ERROR to notify user (`#683 <https://github.com/cra-ros-pkg/robot_localization/issues/683>`_)
+* Contributors: MCFurry
+
+2.6.10 (2021-06-04)
+-------------------
+* Fixing navsat_transform linking
+* SHARED linking for Geographiclib (`#624 <https://github.com/cra-ros-pkg/robot_localization/issues/624>`_)
+* Fixed a typo in validate filter output error message. (`#646 <https://github.com/cra-ros-pkg/robot_localization/issues/646>`_)
+* Fix transformomation for gravitation vector to IMU frame before removing acceleration (`#639 <https://github.com/cra-ros-pkg/robot_localization/issues/639>`_)
+* Stick to the global utm_zone\_ when transforming gps to UTM (`#627 <https://github.com/cra-ros-pkg/robot_localization/issues/627>`_)
+* UTM conversions using geographiclib (`#626 <https://github.com/cra-ros-pkg/robot_localization/issues/626>`_)
+* Update state_estimation_nodes.rst (`#623 <https://github.com/cra-ros-pkg/robot_localization/issues/623>`_)
+* Fixing lat-long to UTM conversion (`#620 <https://github.com/cra-ros-pkg/robot_localization/issues/620>`_)
+* Removing xmlrpcpp dependency
+* Contributors: Achmad Fathoni, JJB_UT, Leonardo Hemerly, Paul Verhoeckx, Tim Clephas, Tom Moore
+
+2.6.9 (2020-12-17)
+------------------
+* Fix warning "Failed to meet update rate!" (`#602 <https://github.com/cra-ros-pkg/robot_localization/issues/602>`_)
+* Fix sign error in dFY_dP part of transferFunctionJacobian\_ (`#592 <https://github.com/cra-ros-pkg/robot_localization/issues/592>`_)
+* Fix typo in navsat_transform_node.rst (`#588 <https://github.com/cra-ros-pkg/robot_localization/issues/588>`_)
+* fix issue caused by starting on uneven terrain (`#582 <https://github.com/cra-ros-pkg/robot_localization/issues/582>`_)
+* Local Cartesian Option (`#575 <https://github.com/cra-ros-pkg/robot_localization/issues/575>`_)
+* Fix frame id of imu in differential mode, closes `#482 <https://github.com/cra-ros-pkg/robot_localization/issues/482>`_. (`#522 <https://github.com/cra-ros-pkg/robot_localization/issues/522>`_)
+* navsat_transform diagram to address `#550 <https://github.com/cra-ros-pkg/robot_localization/issues/550>`_ (`#570 <https://github.com/cra-ros-pkg/robot_localization/issues/570>`_)
+* Increasing the minimum CMake version (`#573 <https://github.com/cra-ros-pkg/robot_localization/issues/573>`_)
+* Contributors: Aleksander Bojda, David Jensen, James Baxter, Jeffrey Kane Johnson, Mabel Zhang, Mike, Ronald Ensing, Tom Moore
+
+2.6.8 (2020-06-03)
+------------------
+* Adding conditional build dependencies (`#572 <https://github.com/cra-ros-pkg/robot_localization/issues/572>`_)
+* Contributors: Tom Moore
+
+2.6.7 (2020-06-01)
+------------------
+* Parameterizing transform failure warnings
+* [melodic] Fix Windows build break. (`#557 <https://github.com/cra-ros-pkg/robot_localization/issues/557>`_)
+* Contributors: Sean Yen, Tom Moore, florianspy
+
+2.6.5 (2019-08-08)
+------------------
+* fix: wall time used when `use_sim_time` is true
+* Created service for converting to / from lat long
+* Fix bug with tf_prefix
+* Adding new contribution to doc
+* Add missing undocumented params
+* Update wiki location
+* Contributors: Andrew Grindstaff, Axel Mousset, Charles Brian Quinn, Oswin So, Tom Moore
+
+2.6.4 (2019-02-15)
+------------------
+* Meridian convergence adjustment added to navsat_transform.
+* Documentation changes
+* Add broadcast_utm_transform_as_parent_frame
+* Enable build optimisations if no build type configured.
+* Contributors: G.A. vd. Hoorn, Pavlo Kolomiiets, diasdm
+
+2.6.3 (2019-01-14)
+------------------
+* Rename odomBaseLinkTrans to baseLinkOdomTrans
+  Adhere to the naming convention <fromFrame><toFrame>Trans used for worldBaseLinkTrans and mapOdomTrans.
+* Add const& to catch values to prevent the error:  catching polymorphic type ‘class tf2::TransformException’ by value
+  And ZoneNumber by 0x3fU to prevent error: directive output may be truncated writing between 1 and 11 bytes into a region of size 4
+* Enabling the user to override the output child_frame_id
+* Fixing Euler body-to-world transformations
+* Whitespace
+* fixing no datum service in melodic
+* Contributors: Alexis schad, Matthew Jones, Tom Moore, thallerod
+
 2.6.2 (2018-10-25)
 ------------------
 * Fixing tests

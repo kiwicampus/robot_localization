@@ -1,5 +1,10 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.0.2)
 project(robot_localization)
+
+if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
+  message("${PROJECT_NAME}: You did not request a specific build type: selecting 'RelWithDebInfo'.")
+  set(CMAKE_BUILD_TYPE RelWithDebInfo)
+endif()
 
 find_package(catkin REQUIRED COMPONENTS
   diagnostic_msgs
@@ -18,11 +23,15 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   tf2
   tf2_geometry_msgs
-  tf2_ros
-  xmlrpcpp)
+  tf2_ros)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(YAML_CPP yaml-cpp)
+
+
+# Geographiclib installs FindGeographicLib.cmake to this non-standard location
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/usr/share/cmake/geographiclib/")
+find_package(GeographicLib REQUIRED)
 
 # Attempt to find Eigen using its own CMake module.
 # If that fails, fall back to cmake_modules package.
@@ -36,7 +45,11 @@ if(NOT EIGEN3_FOUND)
   set(EIGEN_PACKAGE Eigen)
 endif()
 
-set_directory_properties(PROPERTIES COMPILE_OPTIONS "-std=c++14;-Wall;-Werror")
+set(CMAKE_CXX_STANDARD 14)
+
+if(NOT MSVC)
+  set_directory_properties(PROPERTIES COMPILE_OPTIONS "-Wall;-Werror")
+endif()
 add_definitions(-DEIGEN_NO_DEBUG -DEIGEN_MPL2_ONLY)
 
 set(ROSLINT_CPP_OPTS "--filter=-build/c++11,-runtime/references")
@@ -50,7 +63,10 @@ add_service_files(
     GetState.srv
     SetDatum.srv
     SetPose.srv
+    SetUTMZone.srv
     ToggleFilterProcessing.srv
+    FromLL.srv
+    ToLL.srv
 )
 
 generate_messages(
@@ -93,9 +109,9 @@ catkin_package(
     tf2
     tf2_geometry_msgs
     tf2_ros
-    xmlrpcpp
   DEPENDS
     ${EIGEN_PACKAGE}
+    GeographicLib
     YAML_CPP
 )
 
@@ -151,9 +167,9 @@ target_link_libraries(ekf_localization_node ros_filter ${catkin_LIBRARIES})
 target_link_libraries(ekf_localization_nodelet ros_filter ${catkin_LIBRARIES})
 target_link_libraries(ukf_localization_node ros_filter ${catkin_LIBRARIES})
 target_link_libraries(ukf_localization_nodelet ros_filter ${catkin_LIBRARIES})
-target_link_libraries(navsat_transform filter_utilities ros_filter_utilities ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES})
-target_link_libraries(navsat_transform_node navsat_transform ${catkin_LIBRARIES})
-target_link_libraries(navsat_transform_nodelet navsat_transform ${catkin_LIBRARIES})
+target_link_libraries(navsat_transform filter_utilities ros_filter_utilities ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES} ${GeographicLib_LIBRARIES})
+target_link_libraries(navsat_transform_node navsat_transform ${catkin_LIBRARIES} ${GeographicLib_LIBRARIES})
+target_link_libraries(navsat_transform_nodelet navsat_transform ${catkin_LIBRARIES} ${GeographicLib_LIBRARIES})
 
 #############
 ## Install ##
@@ -162,23 +178,26 @@ target_link_libraries(navsat_transform_nodelet navsat_transform ${catkin_LIBRARI
 ## Mark executables and/or libraries for installation
 install(TARGETS
   ekf
-  ekf_localization_node
   ekf_localization_nodelet
   filter_base
   filter_utilities
   navsat_transform
-  navsat_transform_node
   navsat_transform_nodelet
   ros_filter
   ros_filter_utilities
   robot_localization_estimator
   ros_robot_localization_listener
-  robot_localization_listener_node
   ukf
-  ukf_localization_node
   ukf_localization_nodelet
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
+
+install(TARGETS
+  ekf_localization_node
+  navsat_transform_node
+  robot_localization_listener_node
+  ukf_localization_node
   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 ## Mark cpp header files for installation
@@ -310,5 +329,15 @@ if (CATKIN_ENABLE_TESTING)
                         ros_robot_localization_listener
                         ${catkin_LIBRARIES}
                         ${rostest_LIBRARIES})
+
+  #### NAVSAT CONVERSION TESTS ####
+  catkin_add_gtest(navsat_conversions-test test/test_navsat_conversions.cpp)
+  target_link_libraries(navsat_conversions-test navsat_transform ${catkin_LIBRARIES})
+
+  #### NAVSAT TRANSFORM TESTS ####
+  add_rostest_gtest(test_navsat_transform
+                    test/test_navsat_transform.test
+                    test/test_navsat_transform.cpp)
+  target_link_libraries(test_navsat_transform ${catkin_LIBRARIES} ${rostest_LIBRARIES})
 
 endif()

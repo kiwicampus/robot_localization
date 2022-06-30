@@ -65,6 +65,7 @@
 
 #include <fstream>
 #include <map>
+#include <memory>
 #include <numeric>
 #include <queue>
 #include <string>
@@ -106,6 +107,16 @@ typedef std::deque<FilterStatePtr> FilterStateHistoryDeque;
 template<class T> class RosFilter
 {
   public:
+    //! @brief Constructor
+    //!
+    //! The RosFilter constructor makes sure that anyone using
+    //! this template is doing so with the correct object type
+    //!
+    explicit RosFilter(ros::NodeHandle nh,
+                       ros::NodeHandle nh_priv,
+                       std::string node_name,
+                       std::vector<double> args = std::vector<double>());
+
     //! @brief Constructor
     //!
     //! The RosFilter constructor makes sure that anyone using
@@ -464,6 +475,10 @@ template<class T> class RosFilter
     //! @brief Whether or not we use a control term
     //!
     bool useControl_;
+
+    //! @brief Whether or not to print warning for tf lookup failure
+    //!
+    bool silentTfFailure_;
 
     //! @brief The max (worst) dynamic diagnostic level.
     //!

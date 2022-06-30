@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Simon Gene Gottlieb
+ * Copyright (c) 2021, Charles River Analytics, Inc.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,35 +30,40 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "robot_localization/ros_filter_types.h"
+#include "robot_localization/navsat_conversions.h"
 
-#include <nodelet/nodelet.h>
-#include <pluginlib/class_list_macros.h>
-#include <ros/ros.h>
+#include <gtest/gtest.h>
 
-#include <memory>
+#include <string>
 
-namespace RobotLocalization
+void NavsatConversionsTest(const double lat, const double lon,
+                           const double UTMNorthing, const double UTMEasting,
+                           const std::string UTMZone, const double gamma)
 {
+  double UTMNorthing_new;
+  double UTMEasting_new;
+  std::string UTMZone_new;
+  double gamma_new;
+  RobotLocalization::NavsatConversions::LLtoUTM(lat, lon, UTMNorthing_new, UTMEasting_new, UTMZone_new, gamma_new);
+  EXPECT_NEAR(UTMNorthing, UTMNorthing_new, 1e-2);
+  EXPECT_NEAR(UTMEasting, UTMEasting_new, 1e-2);
+  EXPECT_EQ(UTMZone, UTMZone_new);
+  EXPECT_NEAR(gamma, gamma_new, 1e-2);
+  double lat_new;
+  double lon_new;
+  RobotLocalization::NavsatConversions::UTMtoLL(UTMNorthing, UTMEasting, UTMZone, lat_new, lon_new);
+  EXPECT_NEAR(lat_new, lat, 1e-5);
+  EXPECT_NEAR(lon_new, lon, 1e-5);
+}
 
-class EkfNodelet : public nodelet::Nodelet
+TEST(NavsatConversionsTest, UtmTest)
 {
-private:
-  std::unique_ptr<RosEkf> ekf;
+  NavsatConversionsTest(51.423964, 5.494271, 5699924.709, 673409.989, "31U", 1.950);
+  NavsatConversionsTest(-43.530955, 172.636645, 5178919.718, 632246.802, "59G", -1.127);
+}
 
-public:
-  virtual void onInit()
-  {
-    NODELET_DEBUG("Initializing nodelet...");
-
-    ros::NodeHandle nh      = getNodeHandle();
-    ros::NodeHandle nh_priv = getPrivateNodeHandle();
-
-    ekf = std::make_unique<RosEkf>(nh, nh_priv, getName());
-    ekf->initialize();
-  }
-};
-
-}  // namespace RobotLocalization
-
-PLUGINLIB_EXPORT_CLASS(RobotLocalization::EkfNodelet, nodelet::Nodelet);
+int main(int argc, char **argv)
+{
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
