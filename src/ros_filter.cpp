@@ -2173,10 +2173,11 @@ void RosFilter<T>::periodicUpdate()
   // Warn the user if the update took too long
   const double loop_elapsed = (this->now() - cur_time).seconds();
   if (loop_elapsed > 1. / frequency_) {
-    std::cerr <<
-      "Failed to meet update rate! Took " << std::setprecision(20) <<
-      loop_elapsed << "seconds. Try decreasing the rate, limiting "
-      "sensor output frequency, or limiting the number of sensors.\n";
+    RCLCPP_INFO_STREAM(
+      get_logger(),
+      "Failed to meet update rate! Took " << std::setprecision(20) << loop_elapsed << "seconds. "
+        "Try decreasing the rate, limiting sensor output frequency, or limiting the number of "
+        "sensors.");
   }
 }
 
