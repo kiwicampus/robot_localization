@@ -44,10 +44,12 @@ int main(int argc, char ** argv)
   rclcpp::init(argc, argv);
   rclcpp::NodeOptions options;
   options.arguments({"ekf_filter_node"});
+  auto executor = std::make_shared<rclcpp::executors::StaticSingleThreadedExecutor>();
   std::shared_ptr<robot_localization::RosEkf> filter =
     std::make_shared<robot_localization::RosEkf>(options);
   filter->initialize();
-  rclcpp::spin(filter->get_node_base_interface());
+  executor->add_node(filter->get_node_base_interface());
+  executor->spin();
   rclcpp::shutdown();
   return 0;
 }

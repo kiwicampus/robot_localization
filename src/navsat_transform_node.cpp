@@ -39,10 +39,11 @@ int main(int argc, char ** argv)
   rclcpp::init(argc, argv);
 
   const rclcpp::NodeOptions options;
+  auto executor = std::make_shared<rclcpp::executors::StaticSingleThreadedExecutor>();
   auto navsat_transform_node = std::make_shared<robot_localization::NavSatTransform>(options);
 
-  rclcpp::spin(navsat_transform_node->get_node_base_interface());
-
+  executor->add_node(navsat_transform_node->get_node_base_interface());
+  executor->spin();
   rclcpp::shutdown();
   return 0;
 }
