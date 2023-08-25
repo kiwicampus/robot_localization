@@ -29,12 +29,15 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
 #ifndef ROBOT_LOCALIZATION__UKF_HPP_
 #define ROBOT_LOCALIZATION__UKF_HPP_
 
-#include <robot_localization/filter_base.hpp>
 #include <vector>
+
+#include "Eigen/Dense"
+#include "rclcpp/time.hpp"
+#include "robot_localization/filter_base.hpp"
+#include "robot_localization/measurement.hpp"
 
 namespace robot_localization
 {
@@ -93,6 +96,18 @@ public:
     const rclcpp::Duration & delta) override;
 
 protected:
+  /**
+   * @brief  Computes the weighted covariance and sigma points
+   */
+  void generateSigmaPoints();
+
+  /**
+   * @brief  Carries out the predict step for the posteriori state of a sigma point
+   * @param[in,out] sigma_point - The sigma point (state vector) to project
+   * @param[in] delta - The time step over which to project
+   */
+  void projectSigmaPoint(Eigen::VectorXd & sigma_point, const rclcpp::Duration & delta);
+
   /**
    * @brief  The UKF sigma points
    *

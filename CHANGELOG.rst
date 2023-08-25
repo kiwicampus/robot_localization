@@ -2,8 +2,21 @@
 Changelog for package robot_localization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-3.4.0 (2022-05-05)
+3.3.2 (2022-12-11)
 ------------------
+* Port PR `#753 <https://github.com/cra-ros-pkg/robot_localization/issues/753>`_ and `#728 <https://github.com/cra-ros-pkg/robot_localization/issues/728>`_ to ROS2 version (`#765 <https://github.com/cra-ros-pkg/robot_localization/issues/765>`_)
+  * compiling version of commit `#753 <https://github.com/cra-ros-pkg/robot_localization/issues/753>`_ and `#728 <https://github.com/cra-ros-pkg/robot_localization/issues/728>`_ ported to ros2 rolling
+  * format fixes
+  * fix time source disagreement by converting to seconds beforehand, append parameter usage, fix linting
+  * fix linting and uncrustify
+* Adding support for setting diagonals for covariance matrices (`#755 <https://github.com/cra-ros-pkg/robot_localization/issues/755>`_)
+* Fixing and cleaning up interface tests (`#754 <https://github.com/cra-ros-pkg/robot_localization/issues/754>`_)
+  * Fixing and cleaning up interface tests
+* Linting and header cleanup, part 1 (`#752 <https://github.com/cra-ros-pkg/robot_localization/issues/752>`_)
+  * Header cleanup and logging fixes
+* UKF update (`#751 <https://github.com/cra-ros-pkg/robot_localization/issues/751>`_)
+  * Pulling UKF changes from Noetic
+  * Adding a reset service to make tests more deterministic
 * Fix angles dependency (`#747 <https://github.com/cra-ros-pkg/robot_localization/issues/747>`_)
   * Add angles to CMakeLists.txt
 * Using angles library to normalize angles (`#739 <https://github.com/cra-ros-pkg/robot_localization/issues/739>`_)
@@ -14,7 +27,7 @@ Changelog for package robot_localization
   Co-authored-by: Zygfryd Wieszok <zwieszok@autonomous-systems.pl>
 * Fixing code style divergence for ament_uncrustify in main ROS2 branch (`#743 <https://github.com/cra-ros-pkg/robot_localization/issues/743>`_)
 * This fixes `#732 <https://github.com/cra-ros-pkg/robot_localization/issues/732>`_ (broadcast_cartesian_transform) (`#733 <https://github.com/cra-ros-pkg/robot_localization/issues/733>`_)
-* Contributors: Anish, Marek Piechula, RoboTech Vision, Tony Najjar, Zygfryd Wieszok
+* Contributors: Anish, Haoguang Yang, Marek Piechula, RoboTech Vision, Tom Moore, Tony Najjar, Zygfryd Wieszok
 
 3.3.1 (2022-02-25)
 ------------------

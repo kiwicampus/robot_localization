@@ -30,17 +30,18 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+#include "robot_localization/filter_base.hpp"
 
-#include <robot_localization/filter_base.hpp>
-#include <robot_localization/filter_common.hpp>
-#include <robot_localization/filter_utilities.hpp>
-
-#include <iomanip>
-#include <iostream>
-#include <limits>
-#include <sstream>
-#include <vector>
 #include <algorithm>
+#include <ostream>
+#include <vector>
+
+#include "angles/angles.h"
+#include "Eigen/Dense"
+#include "rclcpp/time.hpp"
+#include "robot_localization/filter_common.hpp"
+#include "robot_localization/filter_utilities.hpp"
+#include "robot_localization/measurement.hpp"
 
 namespace robot_localization
 {
@@ -420,12 +421,9 @@ inline double FilterBase::computeControlAcceleration(
 
 void FilterBase::wrapStateAngles()
 {
-  state_(StateMemberRoll) =
-    filter_utilities::clampRotation(state_(StateMemberRoll));
-  state_(StateMemberPitch) =
-    filter_utilities::clampRotation(state_(StateMemberPitch));
-  state_(StateMemberYaw) =
-    filter_utilities::clampRotation(state_(StateMemberYaw));
+  state_(StateMemberRoll) = angles::normalize_angle(state_(StateMemberRoll));
+  state_(StateMemberPitch) = angles::normalize_angle(state_(StateMemberPitch));
+  state_(StateMemberYaw) = angles::normalize_angle(state_(StateMemberYaw));
 }
 
 bool FilterBase::checkMahalanobisThreshold(

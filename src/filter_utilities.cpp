@@ -29,13 +29,13 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
-#include <robot_localization/filter_common.hpp>
-#include <robot_localization/filter_utilities.hpp>
+#include "robot_localization/filter_utilities.hpp"
 
 #include <iomanip>
 #include <string>
 #include <vector>
+
+#include "robot_localization/filter_common.hpp"
 
 std::ostream & operator<<(std::ostream & os, const Eigen::MatrixXd & mat)
 {
@@ -92,7 +92,7 @@ std::ostream & operator<<(std::ostream & os, const std::vector<int> & vec)
   os << "[";
   for (size_t dim = 0; dim < vec.size(); ++dim) {
     os << std::setiosflags(std::ios::left) << std::setw(3) <<
-    (vec[dim] ? "t" : "f");
+      (vec[dim] ? "t" : "f");
   }
   os << "]\n";
 

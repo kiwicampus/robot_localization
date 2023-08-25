@@ -29,44 +29,39 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-
 #ifndef ROBOT_LOCALIZATION__ROS_FILTER_HPP_
 #define ROBOT_LOCALIZATION__ROS_FILTER_HPP_
-
-#include <robot_localization/srv/set_pose.hpp>
-#include <robot_localization/srv/toggle_filter_processing.hpp>
-
-#include <geometry_msgs/msg/accel_with_covariance_stamped.hpp>
-#include <geometry_msgs/msg/pose_with_covariance_stamped.hpp>
-#include <geometry_msgs/msg/transform_stamped.hpp>
-#include <geometry_msgs/msg/twist.hpp>
-#include <geometry_msgs/msg/twist_stamped.hpp>
-#include <geometry_msgs/msg/twist_with_covariance_stamped.hpp>
-#include <nav_msgs/msg/odometry.hpp>
-#include <rclcpp/rclcpp.hpp>
-#include <sensor_msgs/msg/imu.hpp>
-#include <std_msgs/msg/string.hpp>
-#include <std_srvs/srv/empty.hpp>
-#include <tf2/LinearMath/Transform.h>
-#include <tf2_ros/transform_broadcaster.h>
-#include <tf2_ros/transform_listener.h>
-#include <diagnostic_msgs/msg/diagnostic_status.hpp>
-#include <diagnostic_updater/diagnostic_updater.hpp>
-#include <diagnostic_updater/publisher.hpp>
-#include <robot_localization/filter_base.hpp>
-#include <robot_localization/filter_common.hpp>
-#include <robot_localization/ros_filter_utilities.hpp>
-
-#include <Eigen/Dense>
 
 #include <deque>
 #include <fstream>
 #include <map>
-#include <numeric>
+#include <memory>
 #include <queue>
 #include <string>
-#include <memory>
 #include <vector>
+
+#include "diagnostic_msgs/msg/diagnostic_status.hpp"
+#include "diagnostic_updater/diagnostic_updater.hpp"
+#include "diagnostic_updater/publisher.hpp"
+#include "Eigen/Dense"
+#include "geometry_msgs/msg/accel_with_covariance_stamped.hpp"
+#include "geometry_msgs/msg/pose_with_covariance_stamped.hpp"
+#include "geometry_msgs/msg/transform_stamped.hpp"
+#include "geometry_msgs/msg/twist.hpp"
+#include "geometry_msgs/msg/twist_stamped.hpp"
+#include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
+#include "nav_msgs/msg/odometry.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "robot_localization/filter_state.hpp"
+#include "robot_localization/measurement.hpp"
+#include "robot_localization/srv/toggle_filter_processing.hpp"
+#include "robot_localization/srv/set_pose.hpp"
+#include "sensor_msgs/msg/imu.hpp"
+#include "std_srvs/srv/empty.hpp"
+#include "tf2/LinearMath/Transform.h"
+#include "tf2_ros/buffer.h"
+#include "tf2_ros/transform_broadcaster.h"
+#include "tf2_ros/transform_listener.h"
 
 namespace robot_localization
 {
@@ -77,16 +72,19 @@ struct CallbackData
     const std::string & topic_name,
     const std::vector<bool> & update_vector, const int update_sum,
     const bool differential, const bool relative,
+    const bool pose_use_child_frame,
     const double rejection_threshold)
   : topic_name_(topic_name), update_vector_(update_vector),
     update_sum_(update_sum), differential_(differential),
-    relative_(relative), rejection_threshold_(rejection_threshold) {}
+    relative_(relative), pose_use_child_frame_(pose_use_child_frame),
+    rejection_threshold_(rejection_threshold) {}
 
   std::string topic_name_;
   std::vector<bool> update_vector_;
   int update_sum_;
   bool differential_;
   bool relative_;
+  bool pose_use_child_frame_;
   double rejection_threshold_;
 };
 
@@ -151,6 +149,16 @@ public:
   //!
   void
   controlStampedCallback(const geometry_msgs::msg::TwistStamped::SharedPtr msg);
+
+  //! @brief Differentiate angular velocity for angular acceleration
+  //!
+  //! @param[in] currentTime - The time at which to carry out differentiation (the current time)
+  //!
+  //! Maybe more state variables can be time-differentiated to estimate higher-order states,
+  //! but now we only focus on obtaining the angular acceleration. It implements a backward-
+  //! Euler differentiation.
+  //!
+  void differentiateMeasurements(const rclcpp::Time & current_time);
 
   //! @brief Adds a measurement to the queue of measurements to be processed
   //!
@@ -268,16 +276,26 @@ public:
   //! @param[in] callback_data - Relevant static callback data
   //! @param[in] target_frame - The target frame_id into which to transform the
   //! data
+  //! @param[in] pose_source_frame - The source frame_id from which to transform
+  //! the data
   //! @param[in] imu_data - Whether this data comes from an IMU
   //!
   void poseCallback(
     const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg,
     const CallbackData & callback_data, const std::string & target_frame,
+    const std::string & pose_source_frame,
     const bool imu_data);
 
   //! @brief initialize the filter
   //!
   void initialize();
+
+  //! @brief Service callback for resetting the filter to its initial state. Parameters are unused.
+  //!
+  void resetSrvCallback(
+    const std::shared_ptr<rmw_request_id_t>,
+    const std::shared_ptr<std_srvs::srv::Empty::Request>,
+    const std::shared_ptr<std_srvs::srv::Empty::Response>);
 
   //! @brief Callback method for manually setting/resetting the internal pose
   //! estimate
@@ -418,6 +436,8 @@ protected:
   //! @param[in] topic_name - The name of the topic over which this message was
   //! received
   //! @param[in] target_frame - The target tf frame
+  //! @param[in] relative - whether the IMU sensor reports pose relative to
+  //! initialization pose
   //! @param[in] update_vector - The update vector for the data source
   //! @param[in] measurement - The twist data converted to a measurement
   //! @param[in] measurement_covariance - The covariance of the converted
@@ -427,6 +447,7 @@ protected:
     const sensor_msgs::msg::Imu::SharedPtr msg,
     const std::string & topic_name,
     const std::string & target_frame,
+    const bool relative,
     std::vector<bool> & update_vector,
     Eigen::VectorXd & measurement,
     Eigen::MatrixXd & measurement_covariance);
@@ -436,6 +457,7 @@ protected:
   //! @param[in] topic_name - The name of the topic over which this message was
   //! received
   //! @param[in] target_frame - The target tf frame
+  //! @param[in] source_frame - The source tf frame
   //! @param[in] differential - Whether we're carrying out differential
   //! integration
   //! @param[in] relative - Whether this measurement is processed relative to
@@ -451,6 +473,7 @@ protected:
   bool preparePose(
     const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg,
     const std::string & topic_name, const std::string & target_frame,
+    const std::string & source_frame,
     const bool differential, const bool relative, const bool imu_data,
     std::vector<bool> & update_vector, Eigen::VectorXd & measurement,
     Eigen::MatrixXd & measurement_covariance);
@@ -553,6 +576,10 @@ protected:
   //!
   rclcpp::Duration history_length_;
 
+  //! @brief The sensor timeout value that gets passed to the core filter
+  //!
+  rclcpp::Duration sensor_timeout_;
+
   //! @brief tf frame name for the robot's body frame
   //!
   std::string base_link_frame_id_;
@@ -585,6 +612,14 @@ protected:
   //! @brief The most recent control input
   //!
   Eigen::VectorXd latest_control_;
+
+  //! @brief The process noise covariance matrix that gets passed to the core filter
+  //!
+  Eigen::MatrixXd process_noise_covariance_;
+
+  //! @brief The initial estimate error covariance matrix that gets passed to the core filter
+  //!
+  Eigen::MatrixXd initial_estimate_error_covariance_;
 
   //! @brief Message that contains our latest transform (i.e., state)
   //!
@@ -636,6 +671,22 @@ protected:
   //! determine if we should be using messages from that topic.
   //!
   std::map<std::string, rclcpp::Time> last_message_times_;
+
+  //! @brief Last time mark that time-differentiation is calculated, in seconds
+  //!
+  double last_diff_time_;
+
+  //! @brief Last record of filtered angular velocity
+  //!
+  tf2::Vector3 last_state_twist_rot_;
+
+  //! @brief Calculated angular acceleration from time-differencing
+  //!
+  tf2::Vector3 angular_acceleration_;
+
+  //! @brief Covariance of the calculated angular acceleration
+  //!
+  Eigen::MatrixXd angular_acceleration_cov_;
 
   //! @brief Stores the first measurement from each topic for relative
   //! measurements
@@ -744,6 +795,10 @@ protected:
   //! standard Empty service.
   //!
   rclcpp::Service<std_srvs::srv::Empty>::SharedPtr enable_filter_srv_;
+
+  //! @brief Service that resets the filter to its initial state
+  //!
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr reset_srv_;
 
   //! @brief Transform buffer for managing coordinate transforms
   //!
