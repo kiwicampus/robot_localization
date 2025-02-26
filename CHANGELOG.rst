@@ -2,6 +2,47 @@
 Changelog for package robot_localization
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+3.8.1 (2024-08-29)
+------------------
+* Spam the logs a little bit less (`#880 <https://github.com/cra-ros-pkg/robot_localization/issues/880>`_)
+* Fix mixing of UTM and catesian transforms with in use_local_catesian mode (`#884 <https://github.com/cra-ros-pkg/robot_localization/issues/884>`_)
+  * Resolve mixing of UTM and local transforms in local cartesian mode
+* Contributors: JayHerpin, Tim Clephas
+
+3.8.0 (2024-04-21)
+------------------
+* Fixing yaml linking in rolling (`#878 <https://github.com/cra-ros-pkg/robot_localization/issues/878>`_)
+* Contributors: Chris Lalancette
+
+3.6.1 (2024-04-16)
+------------------
+* TF Prefix Bug (`#876 <https://github.com/cra-ros-pkg/robot_localization/issues/876>`_)
+* Update ukf.yaml to match ekf.yaml (`#867 <https://github.com/cra-ros-pkg/robot_localization/issues/867>`_)
+  Add missing *_pose_use_child_frame parameter.
+* Fix throttle duration (`#866 <https://github.com/cra-ros-pkg/robot_localization/issues/866>`_)
+* Migrate static tfs to ros2 format. (`#864 <https://github.com/cra-ros-pkg/robot_localization/issues/864>`_)
+* Update issue templates
+* Feature/set utm service (`#856 <https://github.com/cra-ros-pkg/robot_localization/issues/856>`_)
+* fix: modify dual_ekf_navsat_example.launch file to remap the correct imu topic (`#857 <https://github.com/cra-ros-pkg/robot_localization/issues/857>`_)
+* fix header timestamp (`#852 <https://github.com/cra-ros-pkg/robot_localization/issues/852>`_)
+  Co-authored-by: Luke Chang <luke@boxfish.nz>
+* Wait for odometry message before setting manual datum so that the base and world frame names can be set. (`#836 <https://github.com/cra-ros-pkg/robot_localization/issues/836>`_)
+  * wait for odom msg before setting manual datum
+* Test navsat transform functionality (`#838 <https://github.com/cra-ros-pkg/robot_localization/issues/838>`_)
+* Utm using geographiclib ros2 branch (`#833 <https://github.com/cra-ros-pkg/robot_localization/issues/833>`_)
+  * Add single test for navsat_conversions
+  * Add a southern point to the navsat_transform test
+  * LLtoUTM using GeographicLib
+  * Use GeographicLib for UTMtoLL conversions
+  * Linting
+  * Forgot include
+  * Fix compilation
+  * Calculate gamma because it's a function output and was supplied before
+  * Also test for gamma conversion
+  * Align naming and install
+* bugfix (`#809 <https://github.com/cra-ros-pkg/robot_localization/issues/809>`_): check if covariance values are specified or not (`#810 <https://github.com/cra-ros-pkg/robot_localization/issues/810>`_)
+* Contributors: Daisuke Sato, Luke Chang, Mukunda Bharatheesha, Tim Clephas, Tom Greier, Tom Moore, joeldushouyu, rafal-gorecki, thandal
+
 3.3.2 (2022-12-11)
 ------------------
 * Port PR `#753 <https://github.com/cra-ros-pkg/robot_localization/issues/753>`_ and `#728 <https://github.com/cra-ros-pkg/robot_localization/issues/728>`_ to ROS2 version (`#765 <https://github.com/cra-ros-pkg/robot_localization/issues/765>`_)

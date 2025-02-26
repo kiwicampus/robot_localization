@@ -1,23 +1,24 @@
 ---
 name: Bug report
-about: Create a report to help us improve
+about: Create a bug report to fix _only_ critical issues in robot_localization
 title: ''
 labels: ''
-assignees: ''
+assignees: ayrton04
 
 ---
 
-*Please note* that if you are planning on asking a question, it should be directed to answers.ros.org or robotics.stackexchange.com. *This form should only be used to report bugs*. Issues with your state estimation output are also not considered bugs until you have asked a question at one of the aforementioned sites and been told that you have encountered a bug.
+# ALL QUESTIONS SHOULD BE DIRECTED TO robotics.stackexchange.com
+
+## When asking a question on robotics.stackexchange.com, please include your full EKF config and one sample message from each sensor input**
+
+# THIS PACKAGE WILL SOON BE DEPRECATED. UNLESS SEVERE, BUG REPORTS ARE UNLIKELY TO BE ADDRESSED
 
 **Describe the bug**
 A clear and concise description of what the bug is.
 
 **To Reproduce**
 Steps to reproduce the behavior:
-1. Go to '...'
-2. Click on '....'
-3. Scroll down to '....'
-4. See error
+1. 
 
 **Expected behavior**
 A clear and concise description of what you expected to happen.
@@ -26,15 +27,9 @@ A clear and concise description of what you expected to happen.
 If applicable, add screenshots to help explain your problem.
 
 **Desktop (please complete the following information):**
- - OS: [e.g. iOS]
- - Browser [e.g. chrome, safari]
- - Version [e.g. 22]
-
-**Smartphone (please complete the following information):**
- - Device: [e.g. iPhone6]
- - OS: [e.g. iOS8.1]
- - Browser [e.g. stock browser, safari]
- - Version [e.g. 22]
+ - OS:
+ - ROS Distribution:
+ - `robot_localization` Package Version:
 
 **Additional context**
 Add any other context about the problem here.

@@ -33,6 +33,7 @@ find_package(tf2_ros REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED)
 find_package(yaml_cpp_vendor REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 # Geographiclib installs FindGeographicLib.cmake to this non-standard location
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "/usr/share/cmake/geographiclib/")
@@ -42,9 +43,11 @@ set(library_name rl_lib)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/FromLL.srv"
+  "srv/FromLLArray.srv"
   "srv/GetState.srv"
   "srv/SetDatum.srv"
   "srv/SetPose.srv"
+  "srv/SetUTMZone.srv"
   "srv/ToggleFilterProcessing.srv"
   "srv/ToLL.srv"
   DEPENDENCIES
@@ -101,6 +104,7 @@ target_link_libraries(
   ${library_name}
   ${GeographicLib_LIBRARIES}
   ${EIGEN3_LIBRARIES}
+  yaml-cpp::yaml-cpp
 )
 
 ament_target_dependencies(
@@ -287,6 +291,10 @@ if(BUILD_TESTING)
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
   )
 
+  #### NAVSAT CONVERSION TESTS ####
+  ament_add_gtest(test_navsat_conversions test/test_navsat_conversions.cpp)
+  target_link_libraries(test_navsat_conversions ${library_name})
+
   ament_add_gtest_executable(test_ros_robot_localization_listener
                   test/test_ros_robot_localization_listener.cpp)
   target_link_libraries(test_ros_robot_localization_listener ${library_name})
@@ -321,6 +329,7 @@ if(BUILD_TESTING)
     #test_ekf_localization_node_bag2
     #test_ekf_localization_node_bag3
     test_robot_localization_estimator
+    test_navsat_conversions
     test_ros_robot_localization_listener
     test_ros_robot_localization_listener_publisher
     #test_ukf_localization_node_bag1

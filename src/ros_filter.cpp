@@ -92,6 +92,7 @@ RosFilter<T>::RosFilter(const rclcpp::NodeOptions & options)
   toggled_on_(true),
   two_d_mode_(false),
   use_control_(false),
+  stamped_control_(false),
   disabled_at_startup_(false),
   enabled_(false),
   permit_corrected_publication_(false),
@@ -139,6 +140,7 @@ RosFilter<T>::~RosFilter()
   timer_.reset();
   set_pose_sub_.reset();
   control_sub_.reset();
+  stamped_control_sub_.reset();
   tf_listener_.reset();
   tf_buffer_.reset();
   diagnostic_updater_.reset();
@@ -348,7 +350,7 @@ void RosFilter<T>::controlStampedCallback(
     filter_.setControl(latest_control_, msg->header.stamp);
   } else {
     RCLCPP_WARN_STREAM_THROTTLE(
-      get_logger(), *get_clock(), 5.0, "Commanded velocities "
+      get_logger(), *get_clock(), 5000, "Commanded velocities "
       " must be given in the robot's body frame (" << base_link_frame_id_ <<
         "). Message frame was " << msg->header.frame_id);
   }
@@ -899,9 +901,8 @@ void RosFilter<T>::loadParams()
 
   // Try to resolve tf_prefix
   std::string tf_prefix = "";
-  std::string tf_prefix_path = "";
   this->declare_parameter("tf_prefix", rclcpp::PARAMETER_STRING);
-  if (this->get_parameter("tf_prefix", tf_prefix_path)) {
+  if (this->get_parameter("tf_prefix", tf_prefix)) {
     // Append the tf prefix in a tf2-friendly manner
     filter_utilities::appendPrefix(tf_prefix, map_frame_id_);
     filter_utilities::appendPrefix(tf_prefix, odom_frame_id_);
@@ -971,6 +972,7 @@ void RosFilter<T>::loadParams()
   std::vector<double> deceleration_gains;
 
   use_control_ = this->declare_parameter("use_control", false);
+  stamped_control_ = this->declare_parameter("stamped_control", false);
   control_timeout = this->declare_parameter("control_timeout", 0.0);
 
   if (use_control_) {
@@ -1111,6 +1113,7 @@ void RosFilter<T>::loadParams()
       "\nsmooth_lagged_data is " << (smooth_lagged_data_ ? "true" : "false") <<
       "\nhistory_length is " << filter_utilities::toSec(history_length_) <<
       "\nuse_control is " << use_control_ <<
+      "\nstamped_control_is " << stamped_control_ <<
       "\ncontrol_config is " << control_update_vector <<
       "\ncontrol_timeout is " << control_timeout <<
       "\nacceleration_limits are " << acceleration_limits <<
@@ -1782,9 +1785,16 @@ void RosFilter<T>::loadParams()
       acceleration_limits, acceleration_gains, deceleration_limits,
       deceleration_gains);
 
-    control_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
-      "cmd_vel", rclcpp::QoS(1),
-      std::bind(&RosFilter<T>::controlCallback, this, std::placeholders::_1));
+    // Select between TwistStamped or Twist control input
+    if (stamped_control_) {
+      stamped_control_sub_ = this->create_subscription<geometry_msgs::msg::TwistStamped>(
+        "cmd_vel", rclcpp::QoS(1),
+        std::bind(&RosFilter<T>::controlStampedCallback, this, std::placeholders::_1));
+    } else {
+      control_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
+        "cmd_vel", rclcpp::QoS(1),
+        std::bind(&RosFilter<T>::controlCallback, this, std::placeholders::_1));
+    }
   }
 
   /* Warn users about:
@@ -1961,7 +1971,7 @@ void RosFilter<T>::poseCallback(
 
   RF_DEBUG(
     "------ RosFilter<T>::poseCallback (" << topic_name << ") ------\n"
-      "Pose message:\n" << msg);
+      "Pose message:\n" << geometry_msgs::msg::to_yaml(*msg));
 
   //  Put the initial value in the lastMessagTimes_ for this variable if it's
   //  empty
@@ -2221,7 +2231,7 @@ void RosFilter<T>::periodicUpdate()
           RCLCPP_ERROR_STREAM_SKIPFIRST_THROTTLE(
             get_logger(),
             *get_clock(),
-            5.0,
+            5000,
             "Could not obtain transform from " << odom_frame_id_ << "->" << base_link_frame_id_);
         }
       } else {
@@ -2288,7 +2298,8 @@ void RosFilter<T>::setPoseCallback(
   const geometry_msgs::msg::PoseWithCovarianceStamped::SharedPtr msg)
 {
   RF_DEBUG(
-    "------ RosFilter<T>::setPoseCallback ------\nPose message:\n" << msg);
+    "------ RosFilter<T>::setPoseCallback ------\nPose message:\n" <<
+      geometry_msgs::msg::to_yaml(*msg));
 
   RCLCPP_INFO_STREAM(
     get_logger(),
@@ -2403,7 +2414,7 @@ void RosFilter<T>::twistCallback(
 
   RF_DEBUG(
     "------ RosFilter<T>::twistCallback (" << topic_name << ") ------\n"
-      "Twist message:\n" << msg);
+      "Twist message:\n" << geometry_msgs::msg::to_yaml(*msg));
 
   if (last_message_times_.count(topic_name) == 0) {
     last_message_times_.insert(
@@ -2865,7 +2876,7 @@ bool RosFilter<T>::preparePose(
 
   pose_tmp.stamp_ = tf2::timeFromSec(
     static_cast<double>(msg->header.stamp.sec) +
-    static_cast<double>(msg->header.stamp.sec) / 1000000000.0);
+    static_cast<double>(msg->header.stamp.nanosec) / 1000000000.0);
 
   // Fill out the position data
   pose_tmp.setOrigin(
