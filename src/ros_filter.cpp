@@ -519,6 +519,16 @@ void RosFilter<T>::imuCallback(
   const CallbackData & twist_callback_data,
   const CallbackData & accel_callback_data)
 {
+  // Optional frame_id override (e.g. point this sensor at a static alias frame
+  // that gives a one-hop static path to base_link_frame, avoiding multi-hop
+  // dynamic-chain lookups during bootstrap).
+  {
+    auto it = frame_id_overrides_.find(topic_name);
+    if (it != frame_id_overrides_.end()) {
+      msg->header.frame_id = it->second;
+    }
+  }
+
   RF_DEBUG(
     "------ RosFilter<T>::imuCallback (" <<
       topic_name << ") ------\n")         // << "IMU message:\n" << *msg);
@@ -1187,6 +1197,19 @@ void RosFilter<T>::loadParams()
     }
 
     if (more_params) {
+      // Optional frame_id / child_frame_id overrides applied at the top of the
+      // odometry callback. Empty = pass through.
+      const std::string odom_frame_override = this->declare_parameter(
+        odom_topic_name + std::string("_frame_id_override"), std::string(""));
+      const std::string odom_child_frame_override = this->declare_parameter(
+        odom_topic_name + std::string("_child_frame_id_override"), std::string(""));
+      if (!odom_frame_override.empty()) {
+        frame_id_overrides_[odom_topic_name] = odom_frame_override;
+      }
+      if (!odom_child_frame_override.empty()) {
+        child_frame_id_overrides_[odom_topic_name] = odom_child_frame_override;
+      }
+
       // Determine if we want to integrate this sensor differentially
       bool differential = this->declare_parameter(
         odom_topic_name + std::string("_differential"),
@@ -1540,6 +1563,13 @@ void RosFilter<T>::loadParams()
     }
 
     if (more_params) {
+      // Optional frame_id override applied at the top of the imu callback. Empty = pass through.
+      const std::string imu_frame_override = this->declare_parameter(
+        imu_topic_name + std::string("_frame_id_override"), std::string(""));
+      if (!imu_frame_override.empty()) {
+        frame_id_overrides_[imu_topic_name] = imu_frame_override;
+      }
+
       bool differential = this->declare_parameter(
         imu_topic_name + std::string("_differential"),
         false);
@@ -1890,6 +1920,19 @@ void RosFilter<T>::odometryCallback(
   const CallbackData & pose_callback_data,
   const CallbackData & twist_callback_data)
 {
+  // Optional frame_id / child_frame_id overrides (see header). Applied before
+  // any TF lookup so the EKF can pretend the message lives in an aliased frame.
+  {
+    auto it = frame_id_overrides_.find(topic_name);
+    if (it != frame_id_overrides_.end()) {
+      msg->header.frame_id = it->second;
+    }
+    auto cit = child_frame_id_overrides_.find(topic_name);
+    if (cit != child_frame_id_overrides_.end()) {
+      msg->child_frame_id = cit->second;
+    }
+  }
+
   // If we've just reset the filter, then we want to ignore any messages
   // that arrive with an older timestamp
   if (last_set_pose_time_ >= msg->header.stamp) {
