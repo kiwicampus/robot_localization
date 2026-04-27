@@ -710,6 +710,22 @@ protected:
   //!
   std::map<std::string, bool> remove_gravitational_acceleration_;
 
+  //! @brief Optional per-input frame_id override.
+  //!
+  //! If set for a given topic_name (e.g. "imu0", "odom0"), the incoming message's
+  //! header.frame_id is overwritten with this value at the top of the callback,
+  //! before any TF lookup. Useful when a sensor has multiple equivalent frame
+  //! ids in the TF tree (e.g. a static alias that gives a one-hop static path
+  //! to base_link_frame, avoiding multi-hop dynamic-chain lookups during
+  //! bootstrap).
+  std::map<std::string, std::string> frame_id_overrides_;
+
+  //! @brief Optional per-odom-input child_frame_id override.
+  //!
+  //! Same idea as frame_id_overrides_ but for nav_msgs/Odometry's child_frame_id
+  //! (the body frame of the twist). Empty / unset = pass through.
+  std::map<std::string, std::string> child_frame_id_overrides_;
+
   //! @brief An implicitly time ordered queue of past filter states used for
   //! smoothing.
   //
