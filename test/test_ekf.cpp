@@ -113,6 +113,36 @@ TEST(EkfTest, Measurements) {
   }
 }
 
+TEST(EkfTest, FutureStampDoesNotBlockTopic) {
+  rclcpp::NodeOptions options;
+  options.arguments({"ekf_filter_node"});
+  options.parameter_overrides({{"future_stamp_tolerance", 1.0}});
+  auto filter = std::make_shared<robot_localization::RosEkf>(options);
+  filter->initialize();
+
+  std::vector<bool> update_vector(STATE_SIZE, false);
+  update_vector[robot_localization::StateMemberVx] = true;
+  const robot_localization::CallbackData callback_data(
+    "twist0", update_vector, 1, false, false, false, std::numeric_limits<double>::max());
+
+  auto twist_at = [](const rclcpp::Time & stamp) {
+      auto msg = std::make_shared<geometry_msgs::msg::TwistWithCovarianceStamped>();
+      msg->header.stamp = stamp;
+      msg->header.frame_id = "base_link";
+      msg->twist.twist.linear.x = 1.0;
+      msg->twist.covariance[0] = 1e-3;
+      return msg;
+    };
+
+  const rclcpp::Time now = filter->now();
+  const rclcpp::Time an_hour_ahead = now + rclcpp::Duration::from_seconds(3600.0);
+  filter->twistCallback(twist_at(an_hour_ahead), callback_data, "base_link");
+  filter->twistCallback(twist_at(now), callback_data, "base_link");
+  filter->integrateMeasurements(now);
+
+  EXPECT_TRUE(filter->getFilter().getInitializedStatus());
+}
+
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);
