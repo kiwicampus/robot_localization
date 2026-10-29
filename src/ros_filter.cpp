@@ -2164,6 +2164,8 @@ void RosFilter<T>::periodicUpdate()
   if (reset_on_time_jump_ && clock_jump_detector_.jumped(this->now())) {
     RCLCPP_WARN(get_logger(), "Clock jump detected, resetting filter");
     reset();
+    // Queued pre-jump messages would otherwise re-initialize the filter on the old clock
+    last_set_pose_time_ = this->now();
   }
 
   // Wait for the filter to be enabled
