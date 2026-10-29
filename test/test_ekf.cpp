@@ -113,6 +113,80 @@ TEST(EkfTest, Measurements) {
   }
 }
 
+TEST(EkfTest, FutureStampDoesNotBlockTopic) {
+  rclcpp::NodeOptions options;
+  options.arguments({"ekf_filter_node"});
+  options.parameter_overrides({{"future_stamp_tolerance", 1.0}});
+  auto filter = std::make_shared<robot_localization::RosEkf>(options);
+  filter->initialize();
+
+  std::vector<bool> update_vector(STATE_SIZE, false);
+  update_vector[robot_localization::StateMemberVx] = true;
+  const robot_localization::CallbackData callback_data(
+    "twist0", update_vector, 1, false, false, false, std::numeric_limits<double>::max());
+
+  auto twist_at = [](const rclcpp::Time & stamp) {
+      auto msg = std::make_shared<geometry_msgs::msg::TwistWithCovarianceStamped>();
+      msg->header.stamp = stamp;
+      msg->header.frame_id = "base_link";
+      msg->twist.twist.linear.x = 1.0;
+      msg->twist.covariance[0] = 1e-3;
+      return msg;
+    };
+
+  const rclcpp::Time now = filter->now();
+  const rclcpp::Time an_hour_ahead = now + rclcpp::Duration::from_seconds(3600.0);
+  filter->twistCallback(twist_at(an_hour_ahead), callback_data, "base_link");
+  filter->twistCallback(twist_at(now), callback_data, "base_link");
+  filter->integrateMeasurements(now);
+
+  EXPECT_TRUE(filter->getFilter().getInitializedStatus());
+}
+
+TEST(EkfTest, ClockJumpResetIgnoresPreJumpMessages) {
+  rclcpp::NodeOptions options;
+  options.arguments({"ekf_filter_node"});
+  options.parameter_overrides({{"reset_on_time_jump", true}, {"time_jump_threshold", 10.0}});
+  auto filter = std::make_shared<robot_localization::RosEkf>(options);
+  filter->initialize();
+
+  rcl_clock_t * clock = filter->get_clock()->get_clock_handle();
+  ASSERT_EQ(rcl_enable_ros_time_override(clock), RCL_RET_OK);
+  auto set_time = [clock](const rclcpp::Time & t) {
+      ASSERT_EQ(rcl_set_ros_time_override(clock, t.nanoseconds()), RCL_RET_OK);
+    };
+
+  std::vector<bool> update_vector(STATE_SIZE, false);
+  update_vector[robot_localization::StateMemberVx] = true;
+  const robot_localization::CallbackData callback_data(
+    "twist0", update_vector, 1, false, false, false, std::numeric_limits<double>::max());
+  auto twist_at = [](const rclcpp::Time & stamp) {
+      auto msg = std::make_shared<geometry_msgs::msg::TwistWithCovarianceStamped>();
+      msg->header.stamp = stamp;
+      msg->header.frame_id = "base_link";
+      msg->twist.twist.linear.x = 1.0;
+      msg->twist.covariance[0] = 1e-3;
+      return msg;
+    };
+
+  const rclcpp::Time before_jump(1000, 0, RCL_ROS_TIME);
+  const rclcpp::Time after_jump = before_jump + rclcpp::Duration::from_seconds(55465.0);
+  const rclcpp::Time fresh = after_jump + rclcpp::Duration::from_seconds(0.01);
+
+  set_time(before_jump);
+  filter->periodicUpdate();
+  set_time(after_jump);
+  filter->periodicUpdate();
+
+  // A message stamped on the old clock still queued after the reset must not seed the filter
+  filter->twistCallback(twist_at(before_jump), callback_data, "base_link");
+  filter->twistCallback(twist_at(fresh), callback_data, "base_link");
+  filter->integrateMeasurements(fresh);
+
+  ASSERT_TRUE(filter->getFilter().getInitializedStatus());
+  EXPECT_NEAR(filter->getFilter().getState()(robot_localization::StateMemberX), 0.0, 1e-3);
+}
+
 int main(int argc, char ** argv)
 {
   rclcpp::init(argc, argv);

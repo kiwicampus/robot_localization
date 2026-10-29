@@ -193,6 +193,9 @@ if(BUILD_TESTING)
   ament_add_gtest(filter_base-test test/test_filter_base.cpp)
   target_link_libraries(filter_base-test ${library_name})
 
+  ament_add_gtest(test_clock_jump_detector test/test_clock_jump_detector.cpp)
+  target_link_libraries(test_clock_jump_detector ${library_name})
+
   #### DIAGNOSTICS TESTS ####
   ament_add_gtest_executable(test_filter_base_diagnostics_timestamps
                     test/test_filter_base_diagnostics_timestamps.cpp)

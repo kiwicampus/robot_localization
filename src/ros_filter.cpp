@@ -88,6 +88,7 @@ RosFilter<T>::RosFilter(const rclcpp::NodeOptions & options)
   publish_acceleration_(false),
   publish_transform_(true),
   reset_on_time_jump_(false),
+  future_stamp_tolerance_(0ns),
   smooth_lagged_data_(false),
   toggled_on_(true),
   two_d_mode_(false),
@@ -236,6 +237,10 @@ void RosFilter<T>::accelerationCallback(
   }
 
   const std::string & topic_name = callback_data.topic_name_;
+
+  if (isStampInFuture(msg->header.stamp, topic_name)) {
+    return;
+  }
 
   RF_DEBUG(
     "------ RosFilter<T>::accelerationCallback (" << topic_name <<
@@ -970,8 +975,13 @@ void RosFilter<T>::loadParams()
 
   history_length_ = rclcpp::Duration::from_seconds(std::abs(history_length_double));
 
-  // Whether we reset filter on jump back in time
+  // Whether we reset the filter when the clock steps more than time_jump_threshold
   reset_on_time_jump_ = this->declare_parameter("reset_on_time_jump", false);
+  clock_jump_detector_ = ClockJumpDetector(
+    rclcpp::Duration::from_seconds(this->declare_parameter("time_jump_threshold", 10.0)));
+
+  future_stamp_tolerance_ =
+    rclcpp::Duration::from_seconds(this->declare_parameter("future_stamp_tolerance", 0.0));
 
   // Determine if we're using a control term
   double control_timeout = sensor_timeout_.seconds();
@@ -2012,6 +2022,10 @@ void RosFilter<T>::poseCallback(
     return;
   }
 
+  if (isStampInFuture(msg->header.stamp, topic_name)) {
+    return;
+  }
+
   RF_DEBUG(
     "------ RosFilter<T>::poseCallback (" << topic_name << ") ------\n"
       "Pose message:\n" << geometry_msgs::msg::to_yaml(*msg));
@@ -2147,6 +2161,13 @@ void RosFilter<T>::initialize()
 template<typename T>
 void RosFilter<T>::periodicUpdate()
 {
+  if (reset_on_time_jump_ && clock_jump_detector_.jumped(this->now())) {
+    RCLCPP_WARN(get_logger(), "Clock jump detected, resetting filter");
+    reset();
+    // Queued pre-jump messages would otherwise re-initialize the filter on the old clock
+    last_set_pose_time_ = this->now();
+  }
+
   // Wait for the filter to be enabled
   if (!enabled_) {
     RCLCPP_INFO_ONCE(
@@ -2455,6 +2476,10 @@ void RosFilter<T>::twistCallback(
     return;
   }
 
+  if (isStampInFuture(msg->header.stamp, topic_name)) {
+    return;
+  }
+
   RF_DEBUG(
     "------ RosFilter<T>::twistCallback (" << topic_name << ") ------\n"
       "Twist message:\n" << geometry_msgs::msg::to_yaml(*msg));
@@ -2522,6 +2547,25 @@ void RosFilter<T>::twistCallback(
   }
 
   RF_DEBUG("\n----- /RosFilter<T>::twistCallback (" << topic_name << ") ------\n");
+}
+
+template<typename T>
+bool RosFilter<T>::isStampInFuture(const rclcpp::Time & stamp, const std::string & topic_name)
+{
+  if (future_stamp_tolerance_.nanoseconds() <= 0 ||
+    stamp <= this->now() + future_stamp_tolerance_)
+  {
+    return false;
+  }
+
+  std::stringstream stream;
+  stream << "The " << topic_name << " message is stamped more than " <<
+    future_stamp_tolerance_.seconds() << " s in the future, this message will be ignored. "
+    "(message time: " << filter_utilities::toSec(stamp) << ")";
+  addDiagnostic(
+    diagnostic_msgs::msg::DiagnosticStatus::WARN,
+    topic_name + "_future_timestamp", stream.str(), false);
+  return true;
 }
 
 template<typename T>
