@@ -52,6 +52,7 @@
 #include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "robot_localization/clock_jump_detector.hpp"
 #include "robot_localization/filter_state.hpp"
 #include "robot_localization/measurement.hpp"
 #include "robot_localization/srv/toggle_filter_processing.hpp"
@@ -384,6 +385,12 @@ protected:
     const int error_level, const std::string & topic_and_class,
     const std::string & message, const bool is_static);
 
+  //! @brief Flags a stamp beyond now() + future_stamp_tolerance_, so a single bad
+  //! stamp cannot block its topic through last_message_times_
+  //! @return true if the message must be ignored
+  //!
+  bool isStampInFuture(const rclcpp::Time & stamp, const std::string & topic_name);
+
   //! @brief Aggregates all diagnostics so they can be published
   //! @param[in] wrapper - The diagnostic status wrapper to update
   //!
@@ -510,13 +517,21 @@ protected:
   //!
   bool publish_transform_;
 
-  //! @brief Whether to reset the filters when backwards jump in time is
-  //! detected
+  //! @brief Whether to reset the filters when the clock steps (in either
+  //! direction) by more than time_jump_threshold
   //!
   //! This is usually the case when logs are being used and a jump in the logi
   //! is done or if a log files restarts from the beginning.
   //!
   bool reset_on_time_jump_;
+
+  //! @brief Clock step size that triggers reset_on_time_jump_
+  //!
+  ClockJumpDetector clock_jump_detector_;
+
+  //! @brief Messages stamped further ahead of now() are ignored. Zero disables.
+  //!
+  rclcpp::Duration future_stamp_tolerance_;
 
   //! @brief Whether or not we use smoothing
   //!
@@ -709,6 +724,22 @@ protected:
   //! remove acceleration due to gravity
   //!
   std::map<std::string, bool> remove_gravitational_acceleration_;
+
+  //! @brief Optional per-input frame_id override.
+  //!
+  //! If set for a given topic_name (e.g. "imu0", "odom0"), the incoming message's
+  //! header.frame_id is overwritten with this value at the top of the callback,
+  //! before any TF lookup. Useful when a sensor has multiple equivalent frame
+  //! ids in the TF tree (e.g. a static alias that gives a one-hop static path
+  //! to base_link_frame, avoiding multi-hop dynamic-chain lookups during
+  //! bootstrap).
+  std::map<std::string, std::string> frame_id_overrides_;
+
+  //! @brief Optional per-odom-input child_frame_id override.
+  //!
+  //! Same idea as frame_id_overrides_ but for nav_msgs/Odometry's child_frame_id
+  //! (the body frame of the twist). Empty / unset = pass through.
+  std::map<std::string, std::string> child_frame_id_overrides_;
 
   //! @brief An implicitly time ordered queue of past filter states used for
   //! smoothing.
